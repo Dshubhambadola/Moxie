@@ -1,3 +1,3 @@
-module github.com/shubhambadola/locuta/backend
+module github.com/shubhambadola/moxie/backend
 
 go 1.23.0

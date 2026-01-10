@@ -12,7 +12,7 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
     networks:
-      - locuta-dev
+      - moxie-dev
 
   # Redis (Session Store & Queue)
   redis:
@@ -20,8 +20,8 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - locuta-dev
+      - moxie-dev
 
 networks:
-  locuta-dev:
+  moxie-dev:
     driver: bridge

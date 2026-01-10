@@ -1,8 +1,8 @@
-# Locuta
+# Moxie
 
 **The "Peloton for Communication"**
 
-Locuta is an AI-driven practice platform designed to close the gap between professional knowledge and communication impact. It provides real-time, objective feedback on speech metrics (tone, pace, filler words) and behavioral nuances.
+Moxie is an AI-driven practice platform designed to close the gap between professional knowledge and communication impact. It provides real-time, objective feedback on speech metrics (tone, pace, filler words) and behavioral nuances.
 
 ## Tech Stack (The "Polyglot" Architecture)
 
