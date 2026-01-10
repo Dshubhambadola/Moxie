@@ -2,18 +2,21 @@ package main
 
 import (
 	"fmt"
-	"net/http"
+	"os"
+
+	"github.com/shubhambadola/moxie/backend/internal/server"
 )
 
 func main() {
-	fmt.Println("Moxie Backend Service Starting...")
-	
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Moxie Backend API")
-	})
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
-	// Start server on port 8080
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	srv := server.NewServer(port)
+	fmt.Printf("Moxie Backend Service Starting on port %s...\n", port)
+	
+	if err := srv.ListenAndServe(); err != nil {
 		fmt.Printf("Server failed: %s\n", err)
 	}
 }
