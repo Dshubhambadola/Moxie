@@ -3,7 +3,7 @@ package livekit
 import (
 	"time"
 
-	lksdk "github.com/livekit/server-sdk-go/v2"
+
 	"github.com/livekit/protocol/auth"
 )
 
