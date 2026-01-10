@@ -16,11 +16,16 @@ type Server struct {
 
 func NewServer(port string) *http.Server {
 	// Initialize LiveKit Service
-	// TODO: Load from env vars properly
-	lkService := livekit.NewService(
-		os.Getenv("LIVEKIT_API_KEY"),
-		os.Getenv("LIVEKIT_API_SECRET"),
-	)
+	apiKey := os.Getenv("LIVEKIT_API_KEY")
+	if apiKey == "" {
+		apiKey = "devkey"
+	}
+	apiSecret := os.Getenv("LIVEKIT_API_SECRET")
+	if apiSecret == "" {
+		apiSecret = "dev_secret_key_must_be_32_bytes_long"
+	}
+
+	lkService := livekit.NewService(apiKey, apiSecret)
 
 	s := &Server{
 		Port:           port,

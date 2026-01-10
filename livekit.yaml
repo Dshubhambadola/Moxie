@@ -6,8 +6,8 @@ rtc:
     port_range_start: 50000
     port_range_end: 60000
     use_external_ip: false
-    node_ip_auto_generated: false
+
 redis:
     address: redis:6379
 keys:
-    devkey: secret
+    devkey: dev_secret_key_must_be_32_bytes_long
