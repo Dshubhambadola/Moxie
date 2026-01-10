@@ -1,0 +1,28 @@
+# System Files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+.env*.local
+
+# Go
+bin/
+/backend/bin/
+*.exe
+*.test
+*.prof
+vendor/
+
+# Artifacts
+.gemini/
