@@ -35,7 +35,18 @@ func (s *Service) AnalyzeText(ctx context.Context, text string) (string, error) 
 	}
 	
 	model := s.Client.GenerativeModel("gemini-flash-latest")
-	prompt := fmt.Sprintf("Analyze this speech transcript for clarity, filler words, and sentiment. Provide a brief 2-sentence feedback: %s", text)
+	respSchema := `
+	{
+		"feedback": "Two sentence summary of the speech.",
+		"scores": {
+			"clarity": 85,
+			"pacing": 70,
+			"confidence": 90,
+			"energy": 80
+		}
+	}
+	`
+	prompt := fmt.Sprintf("Analyze this speech transcript. Return ONLY valid JSON matching this schema: %s. \n\nTranscript: %s", respSchema, text)
 
 	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {

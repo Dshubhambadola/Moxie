@@ -1,76 +1,62 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import { Mic, BarChart2, BookOpen, Layers, Bell, Share2, Pause } from 'lucide-react';
-import { createClient } from '@/lib/supabase';
+import { Mic, Layers, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 
-export default function SessionPage() {
+export default function SessionDetailPage() {
     const [transcript, setTranscript] = useState<string>('');
     const [feedback, setFeedback] = useState<string>('');
-    const [scores, setScores] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-
+    const [error, setError] = useState<string | null>(null);
+    const { id } = useParams();
     const supabase = createClient();
 
     useEffect(() => {
-        const storedTranscript = sessionStorage.getItem('lastSessionTranscript');
-        if (storedTranscript) {
-            setTranscript(storedTranscript);
+        if (!id) return;
 
-            const analyzeAndSave = async () => {
-                try {
-                    // 1. Analyze
-                    const res = await fetch('/api/analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ transcript: storedTranscript })
-                    });
+        const fetchSession = async () => {
+            const { data, error } = await supabase
+                .from('sessions')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || 'Analysis request failed');
+            if (error) {
+                console.error("Error fetching session:", error);
+                setError("Session not found or access denied.");
+            } else {
+                setTranscript(data.transcript);
+                setFeedback(data.feedback_text);
+            }
 
-                    setFeedback(data.feedback);
-                    setScores(data.scores);
-
-                    // 2. Save to Supabase (if logged in)
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                        const { error: saveError } = await supabase.from('sessions').insert({
-                            user_id: user.id,
-                            transcript: storedTranscript,
-                            feedback_text: data.feedback,
-                            scores: data.scores // Save entire scores object
-                        });
-                        if (saveError) console.error("Failed to save session:", saveError);
-                    } else {
-                        console.log("User not logged in, session not saved.");
-                    }
-
-                } catch (err: any) {
-                    console.error("Analysis failed", err);
-                    setFeedback("Failed to analyze session: " + (err.message || "Unknown error"));
-                } finally {
-                    setLoading(false);
-                }
-            };
-            analyzeAndSave();
-
-        } else {
             setLoading(false);
-            setTranscript("No transcript found. Please start a new session.");
-        }
-    }, []);
+        };
+        fetchSession();
+    }, [id]);
 
     if (loading) {
         return (
             <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-zinc-950 text-white">
-                <div className="text-xl font-bold animate-pulse">Analyzing Session with Gemini...</div>
+                <div className="text-xl font-bold animate-pulse">Loading Session...</div>
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
+            <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-zinc-950 text-white">
+                <div className="text-xl font-bold text-red-500">{error}</div>
+                <Link href="/dashboard">
+                    <Button variant="outline">Back to Dashboard</Button>
+                </Link>
             </div>
         )
     }
@@ -82,12 +68,13 @@ export default function SessionPage() {
 
             {/* MAIN CONTENT */}
             <div className="flex-1 flex flex-col min-w-0 bg-zinc-950/50">
+
                 {/* Header */}
                 <header className="h-16 border-b border-zinc-800 flex items-center justify-between px-6 bg-zinc-950">
                     <div className="flex items-center gap-2 text-sm text-zinc-400">
-                        <span>Sessions</span>
+                        <Link href="/dashboard" className="hover:text-white">Sessions</Link>
                         <span>/</span>
-                        <span className="text-white font-medium">Session Analysis</span>
+                        <span className="text-white font-medium">Session Detail</span>
                     </div>
                     <Avatar className="h-8 w-8">
                         <AvatarImage src="https://github.com/shadcn.png" />
@@ -98,6 +85,15 @@ export default function SessionPage() {
                 {/* Content */}
                 <ScrollArea className="flex-1 p-6">
                     <div className="max-w-4xl mx-auto space-y-6">
+
+                        <div className="flex items-center gap-4 mb-6">
+                            <Link href="/dashboard">
+                                <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white">
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Button>
+                            </Link>
+                            <h1 className="text-2xl font-bold text-white">Session Review</h1>
+                        </div>
 
                         {/* Transcript Card */}
                         <Card className="border-0 bg-white dark:bg-zinc-900 shadow-sm ring-1 ring-zinc-800">
@@ -116,19 +112,7 @@ export default function SessionPage() {
                             <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-teal-900/30">
                                 <CardTitle className="text-lg font-semibold text-teal-100">Gemini Feedback</CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-6 space-y-6">
-                                {/* Scores Grid */}
-                                {scores && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                        {Object.entries(scores).map(([key, value]: [string, any]) => (
-                                            <div key={key} className="bg-zinc-900/50 p-4 rounded-lg border border-teal-500/10 text-center">
-                                                <div className="text-xs uppercase tracking-wider text-teal-500/70 mb-1">{key}</div>
-                                                <div className="text-2xl font-bold text-white">{value}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
+                            <CardContent className="pt-6">
                                 <div className="text-md leading-relaxed text-teal-200/90 whitespace-pre-wrap">
                                     {feedback}
                                 </div>

@@ -1,184 +1,136 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase';
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowUpRight, TrendingDown, Clock, Activity } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const data = [
-    { name: 'Oct 01', clarity: 65, confidence: 40, delivery: 20 },
-    { name: 'Oct 05', clarity: 68, confidence: 45, delivery: 25 },
-    { name: 'Oct 08', clarity: 75, confidence: 55, delivery: 30 },
-    { name: 'Oct 12', clarity: 80, confidence: 50, delivery: 35 },
-    { name: 'Oct 15', clarity: 85, confidence: 45, delivery: 40 },
-    { name: 'Oct 19', clarity: 70, confidence: 60, delivery: 42 },
-    { name: 'Oct 22', clarity: 65, confidence: 75, delivery: 45 },
-    { name: 'Oct 26', clarity: 90, confidence: 65, delivery: 48 },
-    { name: 'Oct 30', clarity: 82, confidence: 80, delivery: 50 },
-];
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
+import { Loader2, TrendingUp, Mic, Calendar } from 'lucide-react';
 
 export default function AnalyticsPage() {
+    const [data, setData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const supabase = createClient();
+
+    useEffect(() => {
+        const fetchData = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: sessions, error } = await supabase
+                .from('sessions')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: true }); // Ascending for time series
+
+            if (error) {
+                console.error("Error fetching analytics:", error);
+            } else if (sessions) {
+                // Process data for charts
+                const formattedData = sessions.map(session => ({
+                    date: new Date(session.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                    clarity: session.scores?.clarity || 0,
+                    pacing: session.scores?.pacing || 0,
+                    confidence: session.scores?.confidence || 0,
+                    energy: session.scores?.energy || 0
+                }));
+                setData(formattedData);
+            }
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
+
+    // Calculate Averages
+    const avgClarity = data.length ? Math.round(data.reduce((acc, curr) => acc + curr.clarity, 0) / data.length) : 0;
+    const avgPacing = data.length ? Math.round(data.reduce((acc, curr) => acc + curr.pacing, 0) / data.length) : 0;
+    const avgConfidence = data.length ? Math.round(data.reduce((acc, curr) => acc + curr.confidence, 0) / data.length) : 0;
+
     return (
         <div className="flex h-screen w-full bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
             <AppSidebar />
             <div className="flex-1 flex flex-col min-w-0 bg-zinc-950/50">
-                <AppHeader breadCrumb="Performance Analytics" />
+                <AppHeader breadCrumb="Analytics" />
 
-                <main className="flex-1 p-6 overflow-auto">
+                <main className="flex-1 p-6 overflow-auto scrollbar-thin scrollbar-thumb-zinc-800">
                     <div className="max-w-6xl mx-auto space-y-6">
 
                         <div className="flex items-center justify-between">
                             <h1 className="text-2xl font-bold text-white">Performance Analytics</h1>
-                            <div className="flex bg-zinc-900 p-1 rounded-lg border border-zinc-800">
-                                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white h-7">30 Days</Button>
-                                <Button variant="secondary" size="sm" className="bg-zinc-800 text-white shadow-none h-7">90 Days</Button>
-                                <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white h-7">All Time</Button>
-                            </div>
+                            <div className="text-sm text-zinc-400">Last {data.length} Sessions</div>
                         </div>
 
-                        {/* KPI Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <Card className="bg-white border-0 shadow-sm">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium text-zinc-500">Avg. Clarity Score</CardTitle>
-                                    <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">+4.2%</span>
+                        {/* Top Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card className="bg-zinc-900 border-zinc-800">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-medium text-zinc-400">Avg Clarity</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-zinc-900">82.4%</div>
-                                    <p className="text-xs text-zinc-400 mt-1">Target: 85%</p>
+                                    <div className="text-2xl font-bold text-teal-500">{avgClarity}%</div>
+                                    <p className="text-xs text-zinc-500 mt-1">Based on content structure</p>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-white border-0 shadow-sm">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium text-zinc-500">Avg. Confidence</CardTitle>
-                                    <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">+1.8%</span>
+                            <Card className="bg-zinc-900 border-zinc-800">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-medium text-zinc-400">Avg Pacing</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-zinc-900">78.1%</div>
-                                    <p className="text-xs text-zinc-400 mt-1">Target: 75%</p>
+                                    <div className="text-2xl font-bold text-blue-500">{avgPacing}%</div>
+                                    <p className="text-xs text-zinc-500 mt-1">Speed and pauses</p>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-white border-0 shadow-sm">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium text-zinc-500">Avg. Delivery</CardTitle>
-                                    <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">-0.4%</span>
+                            <Card className="bg-zinc-900 border-zinc-800">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm font-medium text-zinc-400">Avg Confidence</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-3xl font-bold text-zinc-900">71.2%</div>
-                                    <p className="text-xs text-zinc-400 mt-1">Target: 80%</p>
+                                    <div className="text-2xl font-bold text-purple-500">{avgConfidence}%</div>
+                                    <p className="text-xs text-zinc-500 mt-1">Tone and delivery</p>
                                 </CardContent>
                             </Card>
                         </div>
 
-                        {/* Main Chart */}
-                        <Card className="bg-white border-0 shadow-sm">
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <CardTitle className="text-lg font-bold text-zinc-900">Performance Trends</CardTitle>
-                                        <p className="text-sm text-zinc-500">Correlation of key metrics over the last 30 days</p>
-                                    </div>
-                                    <div className="flex gap-4 text-xs font-medium">
-                                        <div className="flex items-center gap-2 text-zinc-600"><span className="w-2 h-2 rounded-full bg-teal-700"></span> Clarity</div>
-                                        <div className="flex items-center gap-2 text-zinc-600"><span className="w-2 h-2 rounded-full bg-purple-500"></span> Confidence</div>
-                                        <div className="flex items-center gap-2 text-zinc-600"><span className="w-2 h-2 rounded-full bg-orange-400"></span> Delivery</div>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={data}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E4E4E7" />
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#A1A1AA', fontSize: 10 }} dy={10} />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#A1A1AA', fontSize: 10 }} />
-                                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                            <Line type="monotone" dataKey="clarity" stroke="#0f766e" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                                            <Line type="monotone" dataKey="confidence" stroke="#a855f7" strokeWidth={2} dot={false} />
-                                            <Line type="monotone" dataKey="delivery" stroke="#fbbf24" strokeWidth={2} dot={false} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Main Charts */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Practice Consistency */}
-                            <Card className="bg-white border-0 shadow-sm">
+                            {/* Line Chart */}
+                            <Card className="bg-zinc-900 border-zinc-800 lg:col-span-2">
                                 <CardHeader>
-                                    <CardTitle className="text-lg font-bold text-zinc-900">Practice Consistency</CardTitle>
-                                    <p className="text-sm text-zinc-500">Usage by day and time</p>
+                                    <CardTitle>Progress Over Time</CardTitle>
+                                    <CardDescription>Tracking your key metrics across recent sessions.</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="h-64 flex items-center justify-center text-zinc-400 text-sm bg-zinc-50 rounded-lg border border-dashed border-zinc-200">
-                                        Heatmap Placeholder (Recharts Scatter)
-                                    </div>
+                                <CardContent className="h-[300px]">
+                                    {loading ? (
+                                        <div className="h-full flex items-center justify-center text-zinc-500">
+                                            <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading data...
+                                        </div>
+                                    ) : data.length === 0 ? (
+                                        <div className="h-full flex items-center justify-center text-zinc-500">
+                                            No data yet. Complete a session to see analytics!
+                                        </div>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={data}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                                                <XAxis dataKey="date" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
+                                                    itemStyle={{ color: '#e4e4e7' }}
+                                                />
+                                                <Legend />
+                                                <Line type="monotone" dataKey="clarity" stroke="#14b8a6" strokeWidth={2} dot={{ r: 4, fill: '#14b8a6' }} activeDot={{ r: 6 }} />
+                                                <Line type="monotone" dataKey="pacing" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4, fill: '#3b82f6' }} />
+                                                <Line type="monotone" dataKey="confidence" stroke="#a855f7" strokeWidth={2} dot={{ r: 4, fill: '#a855f7' }} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    )}
                                 </CardContent>
                             </Card>
 
-                            {/* Top Improvement Areas */}
-                            <Card className="bg-white border-0 shadow-sm">
-                                <CardHeader>
-                                    <CardTitle className="text-lg font-bold text-zinc-900">Top Improvement Areas</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-
-                                    <div className="flex gap-4">
-                                        <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 shrink-0">
-                                            <TrendingDown className="h-5 w-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <h4 className="font-bold text-zinc-900 text-sm">Filler Word Usage</h4>
-                                                <span className="text-xs font-bold text-green-600">-24% Improvement</span>
-                                            </div>
-                                            <p className="text-xs text-zinc-500 mb-2">Significant reduction in "uh", "um" and "like" across all sessions.</p>
-                                            <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-green-500 w-[76%]"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                                            <Activity className="h-5 w-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <h4 className="font-bold text-zinc-900 text-sm">Pacing Stability</h4>
-                                                <span className="text-xs font-bold text-green-600">+12% Improvement</span>
-                                            </div>
-                                            <p className="text-xs text-zinc-500 mb-2">You're maintaining a steadier 140 WPM during high-stakes segments.</p>
-                                            <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-blue-500 w-[45%]"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-                                            <Clock className="h-5 w-5" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <h4 className="font-bold text-zinc-900 text-sm">Vocal Variety</h4>
-                                                <span className="text-xs font-bold text-yellow-600">+2% Slow Progress</span>
-                                            </div>
-                                            <p className="text-xs text-zinc-500 mb-2">Still occasional monotone patterns during data-heavy sections.</p>
-                                            <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-purple-500 w-[12%]"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <Button variant="ghost" className="w-full text-teal-700 hover:text-teal-800 hover:bg-teal-50">
-                                        View Detailed Breakdown
-                                    </Button>
-
-                                </CardContent>
-                            </Card>
                         </div>
 
                     </div>

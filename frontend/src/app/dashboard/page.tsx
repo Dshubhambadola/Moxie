@@ -16,51 +16,46 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Filter, Mic, ArrowRight } from "lucide-react";
 import Link from 'next/link';
 
-// Mock Data for History
-const sessions = [
-    {
-        id: 1,
-        title: "Keynote Rehearsal - Oct 24",
-        date: "Oct 24, 2024",
-        duration: "03:45",
-        score: 88,
-        pacing: "Excellent",
-        clarity: "High",
-        status: "Excellent"
-    },
-    {
-        id: 2,
-        title: "Pitch Deck Rev 2",
-        date: "Oct 26, 2024",
-        duration: "12:15",
-        score: 74,
-        pacing: "Good",
-        clarity: "Medium",
-        status: "Needs Work"
-    },
-    {
-        id: 3,
-        title: "Intro Workshop",
-        date: "Oct 25, 2024",
-        duration: "45:00",
-        score: 92,
-        pacing: "Perfect",
-        clarity: "High",
-        status: "Perfect"
-    },
-    {
-        id: 4,
-        title: "Internal Sync",
-        date: "Oct 23, 2024",
-        duration: "15:30",
-        score: 58,
-        pacing: "Fast",
-        clarity: "Low",
-        status: "Critical Issues"
-    }
-];
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+
+interface Session {
+    id: string;
+    created_at: string;
+    transcript: string;
+    feedback_text: string;
+    scores: any;
+}
 
 export default function DashboardPage() {
+    const [sessions, setSessions] = useState<Session[]>([]);
+    const [loading, setLoading] = useState(true);
+    const supabase = createClient();
+    const router = useRouter();
+
+    useEffect(() => {
+        const fetchSessions = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                router.push('/login');
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from('sessions')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) console.error("Error fetching sessions:", error);
+            else setSessions(data || []);
+
+            setLoading(false);
+        };
+        fetchSessions();
+    }, []);
+
     return (
         <div className="flex h-screen w-full bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
             <AppSidebar />
@@ -108,59 +103,50 @@ export default function DashboardPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sessions.map((session) => (
-                                        <TableRow key={session.id} className="border-zinc-800 hover:bg-zinc-900/80 transition-colors group">
-                                            <TableCell className="pl-6 py-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${session.status === 'Excellent' || session.status === 'Perfect' ? 'bg-teal-900/50 text-teal-500' :
-                                                            session.status === 'Critical Issues' ? 'bg-red-900/50 text-red-500' :
-                                                                'bg-amber-900/50 text-amber-500'
-                                                        }`}>
-                                                        <Mic className="h-5 w-5" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-semibold text-zinc-200">{session.title}</div>
-                                                        <div className="text-xs text-zinc-500">{session.date} • {session.duration} duration</div>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className={`border-0 font-bold ${session.score >= 90 ? 'bg-teal-500/20 text-teal-500' :
-                                                        session.score >= 80 ? 'bg-teal-500/10 text-teal-400' :
-                                                            session.score >= 70 ? 'bg-amber-500/10 text-amber-500' :
-                                                                'bg-red-500/10 text-red-500'
-                                                    }`}>
-                                                    {session.score}%
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                {/* Mock Pacing Bars */}
-                                                <div className="flex items-end gap-0.5 h-6 w-16 opacity-70">
-                                                    {[40, 60, 30, 80, 50, 90, 40].map((h, i) => (
-                                                        <div key={i} className="flex-1 bg-teal-500 rounded-sm" style={{ height: `${h}%` }}></div>
-                                                    ))}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="w-24">
-                                                    <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mb-1">
-                                                        <div className={`h-full rounded-full ${session.clarity === 'High' ? 'w-[90%] bg-teal-500' :
-                                                                session.clarity === 'Medium' ? 'w-[70%] bg-amber-500' :
-                                                                    'w-[40%] bg-red-500'
-                                                            }`}></div>
-                                                    </div>
-                                                    <div className="text-[10px] font-semibold text-zinc-500 uppercase">{session.status}</div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right pr-6">
-                                                <Link href="/session">
-                                                    <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-full">
-                                                        <ArrowRight className="h-5 w-5" />
-                                                    </Button>
-                                                </Link>
-                                            </TableCell>
+                                    {loading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-8 text-zinc-500">Loading history...</TableCell>
                                         </TableRow>
-                                    ))}
+                                    ) : sessions.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="text-center py-8 text-zinc-500">No sessions found. Start practicing!</TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        sessions.map((session) => (
+                                            <TableRow key={session.id} className="border-zinc-800 hover:bg-zinc-900/80 transition-colors group">
+                                                <TableCell className="pl-6 py-4">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="h-10 w-10 rounded-full bg-teal-900/50 text-teal-500 flex items-center justify-center shrink-0">
+                                                            <Mic className="h-5 w-5" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-semibold text-zinc-200">Practice Session</div>
+                                                            <div className="text-xs text-zinc-500">
+                                                                {new Date(session.created_at).toLocaleDateString()} • {new Date(session.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className="border-0 font-bold bg-zinc-800 text-zinc-400">
+                                                        N/A
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="text-zinc-500 text-sm">-</span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="text-zinc-500 text-sm">-</span>
+                                                </TableCell>
+                                                <TableCell className="text-right pr-6">
+                                                    <Link href={`/session/${session.id}`}>
+                                                        <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-full">
+                                                            <ArrowRight className="h-5 w-5" />
+                                                        </Button>
+                                                    </Link>
+                                                </TableCell>
+                                            </TableRow>
+                                        )))}
                                 </TableBody>
                             </Table>
                         </div>
