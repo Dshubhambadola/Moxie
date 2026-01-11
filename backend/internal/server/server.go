@@ -1,35 +1,50 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
+	"github.com/shubhambadola/moxie/backend/internal/deepgram"
+	"github.com/shubhambadola/moxie/backend/internal/gemini"
 	"github.com/shubhambadola/moxie/backend/internal/livekit"
 )
 
 type Server struct {
-	Port          string
-	LiveKitService *livekit.Service
+	Port            string
+	LiveKitService  *livekit.Service
+	DeepgramService *deepgram.Service
+	GeminiService   *gemini.Service
 }
 
 func NewServer(port string) *http.Server {
-	// Initialize LiveKit Service
-	apiKey := os.Getenv("LIVEKIT_API_KEY")
-	if apiKey == "" {
-		apiKey = "devkey"
-	}
-	apiSecret := os.Getenv("LIVEKIT_API_SECRET")
-	if apiSecret == "" {
-		apiSecret = "dev_secret_key_must_be_32_bytes_long"
-	}
+	ctx := context.Background()
 
-	lkService := livekit.NewService(apiKey, apiSecret)
+	// Initialize LiveKit Service
+	lkService := livekit.NewService(
+		os.Getenv("LIVEKIT_API_KEY"),
+		os.Getenv("LIVEKIT_API_SECRET"),
+	)
+
+	// Initialize Deepgram Service
+	dgService := deepgram.NewService(
+		os.Getenv("DEEPGRAM_API_KEY"),
+	)
+
+	// Initialize Gemini Service
+	geminiService, err := gemini.NewService(ctx, os.Getenv("GEMINI_API_KEY"))
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Gemini service: %v", err)
+	}
 
 	s := &Server{
-		Port:           port,
-		LiveKitService: lkService,
+		Port:            port,
+		LiveKitService:  lkService,
+		DeepgramService: dgService,
+		GeminiService:   geminiService,
 	}
 
 	mux := http.NewServeMux()
@@ -41,6 +56,12 @@ func NewServer(port string) *http.Server {
 
 	// Token Endpoint
 	mux.HandleFunc("/api/livekit/token", s.handleToken)
+    
+    // Audio Stream Endpoint
+    mux.HandleFunc("/api/ws", s.handleWebSocket)
+    
+    // Analysis Endpoint
+    mux.HandleFunc("/api/analyze", s.handleAnalyze)
 
 	return &http.Server{
 		Addr:    fmt.Sprintf(":%s", port),

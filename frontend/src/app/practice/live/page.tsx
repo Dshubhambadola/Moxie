@@ -1,61 +1,33 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LiveKitRoom, RoomAudioRenderer, useRoomContext, useConnectionState } from '@livekit/components-react';
-import { ConnectionState } from 'livekit-client';
-import '@livekit/components-styles';
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mic, StopCircle, Menu, AlertTriangle, Gauge, Volume2 } from "lucide-react";
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 
 export default function LivePracticePage() {
-    const [token, setToken] = useState('');
-
-    useEffect(() => {
-        (async () => {
-            try {
-                const resp = await fetch('/api/livekit/token?room=practice-room&participant=user-1');
-                const data = await resp.json();
-                setToken(data.token);
-            } catch (e) {
-                console.error(e);
-            }
-        })();
-    }, []);
-
-    if (token === '') {
-        return <div className="flex h-screen w-full items-center justify-center bg-zinc-950 text-white">Preparing Studio...</div>;
-    }
-
-    return (
-        <LiveKitRoom
-            video={false}
-            audio={true}
-            token={token}
-            serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
-            data-lk-theme="default"
-            style={{ height: '100vh', background: '#09090b', color: 'white' }}
-        >
-            <RoomAudioRenderer />
-            <LiveSessionContent />
-        </LiveKitRoom>
-    );
-}
-
-function LiveSessionContent() {
-    const connectionState = useConnectionState();
+    // New Audio Recorder Hook
+    const { isRecording, transcript, startRecording, stopRecording, error } = useAudioRecorder();
     const [duration, setDuration] = useState(0);
+
+    // Auto-start recording on mount
+    useEffect(() => {
+        startRecording();
+        return () => {
+            stopRecording();
+        };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Timer Logic
     useEffect(() => {
-        if (connectionState === ConnectionState.Connected) {
+        if (isRecording) {
             const interval = setInterval(() => setDuration(d => d + 1), 1000);
             return () => clearInterval(interval);
         }
-    }, [connectionState]);
+    }, [isRecording]);
 
     const formatTime = (secs: number) => {
         const mins = Math.floor(secs / 60);
@@ -63,14 +35,10 @@ function LiveSessionContent() {
         return `${mins.toString().padStart(2, '0')} : ${remainingSecs.toString().padStart(2, '0')}`;
     }
 
-    if (connectionState !== ConnectionState.Connected) {
-        return (
-            <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-zinc-950 text-white">
-                <div className="text-xl font-bold font-serif">Connecting to Studio...</div>
-                <div className="text-zinc-500 text-sm">Status: {connectionState}</div>
-            </div>
-        )
-    }
+    // if (!isRecording && duration === 0) {
+    //      // Optional loading state
+    //      return <div className="flex h-screen w-full items-center justify-center bg-zinc-950 text-white">Initializing Audio...</div>;
+    // }
 
     return (
         <div className="flex h-screen w-full flex-col bg-zinc-950 text-white font-sans">
@@ -101,6 +69,7 @@ function LiveSessionContent() {
                     <div className="mb-12 text-center">
                         <h1 className="text-4xl font-bold text-white mb-2 font-serif">Live Recording Session</h1>
                         <p className="text-zinc-400">Recording and analyzing your pitch in real-time...</p>
+                        {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
                     </div>
 
                     {/* Timer */}
@@ -116,37 +85,53 @@ function LiveSessionContent() {
                         </div>
                     </div>
 
-                    {/* Visualizer Mock */}
+                    {/* Visualizer Mock (only animated when recording) */}
                     <div className="h-64 flex items-center gap-1.5 mb-16">
                         {[...Array(20)].map((_, i) => (
                             <div
                                 key={i}
                                 className={`w-3 rounded-full transition-all duration-300 ${i === 9 || i === 10 ? 'bg-teal-500 h-32' : 'bg-teal-900/40 h-16'}`}
                                 style={{
-                                    height: `${40 + Math.random() * 100}px`,
-                                    animation: `pulse 1s infinite ${i * 0.1}s`
+                                    height: isRecording ? `${40 + Math.random() * 100}px` : '40px',
+                                    animation: isRecording ? `pulse 1s infinite ${i * 0.1}s` : 'none'
                                 }}
                             ></div>
                         ))}
-                        <div className="absolute bg-zinc-900 px-4 py-2 rounded-full shadow-lg border border-zinc-800 flex items-center gap-2 text-xs font-bold tracking-widest text-white uppercase">
-                            <Mic className="h-3 w-3 text-red-500 animate-pulse" /> Listening
+                        <div className={`absolute bg-zinc-900 px-4 py-2 rounded-full shadow-lg border border-zinc-800 flex items-center gap-2 text-xs font-bold tracking-widest text-white uppercase ${isRecording ? 'opacity-100' : 'opacity-50'}`}>
+                            <Mic className={`h-3 w-3 text-red-500 ${isRecording ? 'animate-pulse' : ''}`} /> {isRecording ? 'Listening' : 'Paused'}
                         </div>
                     </div>
 
                     {/* Transcript Preview */}
-                    <div className="max-w-2xl text-center">
-                        <p className="text-lg text-zinc-400 font-serif italic leading-relaxed">
-                            "...so the main objective of this project is to ensure that the user experience remains <span className="text-white bg-teal-900/50 px-1 decoration-teal-600 underline underline-offset-4">seamless</span> while the AI processes..."
-                        </p>
+                    <div className="max-w-2xl text-center w-full relative group">
+                        <div className="max-h-[200px] overflow-y-auto p-4 rounded-xl transition-colors hover:bg-white/5 no-scrollbar mask-gradient-b">
+                            <p className="text-lg text-zinc-400 font-serif italic leading-relaxed">
+                                {transcript ? (
+                                    <>"{transcript}"</>
+                                ) : (
+                                    <span className="text-zinc-600">Start speaking to see your transcript...</span>
+                                )}
+                            </p>
+                        </div>
                     </div>
 
 
                     {/* Floating Controls */}
                     <div className="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-zinc-900 p-2 rounded-full shadow-2xl border border-zinc-800 pl-6">
-                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400">
-                            <Mic className="h-5 w-5" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400"
+                            onClick={() => isRecording ? stopRecording() : startRecording()}
+                        >
+                            <Mic className={`h-5 w-5 ${!isRecording ? 'text-red-500' : ''}`} />
                         </Button>
-                        <Link href="/session">
+                        <Link href="/session" onClick={() => {
+                            stopRecording();
+                            if (typeof window !== 'undefined') {
+                                sessionStorage.setItem('lastSessionTranscript', transcript);
+                            }
+                        }}>
                             <Button className="h-12 px-8 rounded-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-base shadow-lg shadow-teal-900/20">
                                 <StopCircle className="h-5 w-5 mr-2" /> Stop & Analyze Session
                             </Button>

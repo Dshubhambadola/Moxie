@@ -19,10 +19,14 @@ Designed for performance and "Solo Dev" velocity.
 
 ### Infrastructure & AI
 - **Auth & DB**: Supabase (PostgreSQL)
-- **Real-Time Audio**: LiveKit
-- **Speech-to-Text**: Deepgram Nova-3
-- **Reasoning**: Gemini 1.5 Pro
+- **Real-Time Audio**: WebSocket Streaming (Go + Native MediaRecorder)
+- **Speech-to-Text**: Deepgram Nova-2 (Implemented)
+- **Reasoning**: Gemini 2.0 Flash / Flash Latest (Implemented)
 - **Caching**: Redis (Upstash/Local)
+
+## Features (Implemented)
+- **Live Practice Endpoint**: `/practice/live` - Real-time transcription using Deepgram.
+- **Session Analysis Endpoint**: `/session` - AI feedback on speech patterns using Gemini.
 
 ## Development
 
