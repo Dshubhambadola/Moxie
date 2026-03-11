@@ -25,10 +25,17 @@ export default function SessionPage() {
 
             const analyzeAndSave = async () => {
                 try {
+                    // Get token for auth
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const token = session?.access_token;
+
                     // 1. Analyze
                     const res = await fetch('/api/analyze', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
                         body: JSON.stringify({ transcript: storedTranscript })
                     });
 

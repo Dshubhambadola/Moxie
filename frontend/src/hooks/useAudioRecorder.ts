@@ -20,9 +20,14 @@ export function useAudioRecorder() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
+            const { createClient } = await import('@/lib/supabase');
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token || '';
+
             // Connect to Backend WebSocket
             // Note: In production, use wss and proper host
-            const ws = new WebSocket('ws://localhost:8080/api/ws');
+            const ws = new WebSocket(`ws://localhost:8080/api/ws?token=${token}`);
             socket.current = ws;
 
             ws.onopen = () => {
