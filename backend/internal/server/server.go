@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/shubhambadola/moxie/backend/internal/auth"
 	"github.com/shubhambadola/moxie/backend/internal/deepgram"
 	"github.com/shubhambadola/moxie/backend/internal/gemini"
 	"github.com/shubhambadola/moxie/backend/internal/livekit"
@@ -56,12 +57,12 @@ func NewServer(port string) *http.Server {
 
 	// Token Endpoint
 	mux.HandleFunc("/api/livekit/token", s.handleToken)
-    
-    // Audio Stream Endpoint
-    mux.HandleFunc("/api/ws", s.handleWebSocket)
-    
-    // Analysis Endpoint
-    mux.HandleFunc("/api/analyze", s.handleAnalyze)
+
+	// Audio Stream Endpoint (Token validation inside handler for WS protocol)
+	mux.HandleFunc("/api/ws", s.handleWebSocket)
+
+	// Analysis Endpoint (Protected by JWT)
+	mux.HandleFunc("/api/analyze", auth.RequireAuth(s.handleAnalyze))
 
 	return &http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
