@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Mic, StopCircle, Menu, AlertTriangle, Gauge, Volume2 } from "lucide-react";
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 
-export default function LivePracticePage() {
+function LivePracticeContent() {
     // New Audio Recorder Hook
     const { isRecording, transcript, startRecording, stopRecording, error } = useAudioRecorder();
     const [duration, setDuration] = useState(0);
+    const searchParams = useSearchParams();
+    const personaId = searchParams.get('persona') || 'standard';
 
     // Auto-start recording on mount
     useEffect(() => {
@@ -69,6 +73,9 @@ export default function LivePracticePage() {
                     <div className="mb-12 text-center">
                         <h1 className="text-4xl font-bold text-white mb-2 font-serif">Live Recording Session</h1>
                         <p className="text-zinc-400">Recording and analyzing your pitch in real-time...</p>
+                        <Badge variant="outline" className="mt-4 border-teal-800 text-teal-400 bg-teal-900/10">
+                            Coaching Persona: {personaId.charAt(0).toUpperCase() + personaId.slice(1)}
+                        </Badge>
                         {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
                     </div>
 
@@ -130,6 +137,7 @@ export default function LivePracticePage() {
                             stopRecording();
                             if (typeof window !== 'undefined') {
                                 sessionStorage.setItem('lastSessionTranscript', transcript);
+                                sessionStorage.setItem('lastSessionPersona', personaId);
                             }
                         }}>
                             <Button className="h-12 px-8 rounded-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-base shadow-lg shadow-teal-900/20">
@@ -192,5 +200,13 @@ export default function LivePracticePage() {
 
             </main>
         </div>
+    );
+}
+
+export default function LivePracticePage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-zinc-950 text-white">Loading Practice Environment...</div>}>
+            <LivePracticeContent />
+        </Suspense>
     );
 }

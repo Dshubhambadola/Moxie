@@ -20,6 +20,8 @@ export default function SessionPage() {
 
     useEffect(() => {
         const storedTranscript = sessionStorage.getItem('lastSessionTranscript');
+        const storedPersona = sessionStorage.getItem('lastSessionPersona') || 'standard';
+
         if (storedTranscript) {
             setTranscript(storedTranscript);
 
@@ -36,7 +38,7 @@ export default function SessionPage() {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({ transcript: storedTranscript })
+                        body: JSON.stringify({ transcript: storedTranscript, personaId: storedPersona })
                     });
 
                     const data = await res.json();
