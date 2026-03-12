@@ -3,7 +3,7 @@ package gemini
 import (
 	"context"
 	"fmt"
-    
+
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 )
@@ -17,7 +17,7 @@ func NewService(ctx context.Context, apiKey string) (*Service, error) {
 	if apiKey == "" {
 		return &Service{ApiKey: ""}, nil // Return empty service if no key yet
 	}
-    
+
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
 		return nil, err
@@ -29,11 +29,11 @@ func NewService(ctx context.Context, apiKey string) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) AnalyzeText(ctx context.Context, text string) (string, error) {
+func (s *Service) AnalyzeText(ctx context.Context, text string, personaId string) (string, error) {
 	if s.Client == nil {
 		return "", fmt.Errorf("gemini client not initialized")
 	}
-	
+
 	model := s.Client.GenerativeModel("gemini-flash-latest")
 	respSchema := `
 	{
@@ -46,7 +46,20 @@ func (s *Service) AnalyzeText(ctx context.Context, text string) (string, error) 
 		}
 	}
 	`
-	prompt := fmt.Sprintf("Analyze this speech transcript. Return ONLY valid JSON matching this schema: %s. \n\nTranscript: %s", respSchema, text)
+
+	// Default Persona
+	personaInstruction := "You are a standard, balanced speech coach. Provide constructive feedback on clarity, pacing, and confidence."
+
+	switch personaId {
+	case "executive":
+		personaInstruction = "You are 'The Executive', a very direct, concise, and tough professional. Focus heavily on eliminating filler words, getting straight to the point, and maintaining a commanding presence. Be brutally honest if the pacing is slow or clarity is poor."
+	case "encourager":
+		personaInstruction = "You are 'The Encourager', a highly supportive and positive speech coach. Always highlight the speaker's strengths first. Be gentle when suggesting areas for improvement. Your goal is to build their confidence."
+	case "interviewer":
+		personaInstruction = "You are 'The Interviewer', a tough and probing evaluator. You are looking for structure, logical flow, and extreme confidence under pressure. Be critical of disorganized thoughts."
+	}
+
+	prompt := fmt.Sprintf("%s\n\nAnalyze this speech transcript. Return ONLY valid JSON matching this schema: %s. \n\nTranscript: %s", personaInstruction, respSchema, text)
 
 	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
